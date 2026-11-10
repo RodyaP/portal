@@ -1,0 +1,9 @@
+[Unit]
+Description=Remove portal data older than 12 months
+[Service]
+Type=oneshot
+User=meeting-portal
+WorkingDirectory=/opt/meeting-portal
+EnvironmentFile=/etc/meeting-portal/portal.env
+ExecStart=/opt/meeting-portal/.venv/bin/python -m server.manage prune
+NoNewPrivileges=true

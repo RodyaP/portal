@@ -1,0 +1,25 @@
+# Isolated, disposable test database. Does not use the production volume or .env.
+name: ugmk-meetings-tests
+services:
+  db:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_DB: portal_test
+      POSTGRES_USER: tester
+      POSTGRES_PASSWORD: disposable-test-password
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U tester -d portal_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      TEST_DATABASE_URL: postgresql://tester:disposable-test-password@db:5432/portal_test
+    depends_on:
+      db:
+        condition: service_healthy

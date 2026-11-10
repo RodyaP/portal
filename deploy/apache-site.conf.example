@@ -1,0 +1,38 @@
+# TEMPLATE. Replace certificate/keytab paths, office/VPN CIDRs, proxy secret.
+# Modules: ssl proxy proxy_http headers auth_gssapi authz_host
+# Keep the backend on a Unix socket. Do not expose a TCP backend listener.
+<VirtualHost *:443>
+    ServerName peregovornii.ugmkstroy.ru
+    SSLEngine On
+    SSLCertificateFile /etc/meeting-portal/portal-fullchain.pem
+    SSLCertificateKeyFile /etc/meeting-portal/portal.key
+    SSLProtocol -all +TLSv1.2 +TLSv1.3
+    ProxyRequests Off
+    ProxyPreserveHost On
+    LimitRequestBody 65536
+    Header always set Strict-Transport-Security "max-age=31536000"
+    RequestHeader unset X-Remote-User early
+    RequestHeader unset X-Portal-Proxy-Secret early
+    <Location />
+        AuthType GSSAPI
+        AuthName "Corporate account"
+        GssapiCredStore keytab:/etc/meeting-portal/http.keytab
+        GssapiSSLonly On
+        GssapiLocalName Off
+        GssapiBasicAuth On
+        GssapiBasicAuthMech krb5
+        <RequireAll>
+            Require valid-user
+            # Replace documentation networks with actual office and VPN CIDRs.
+            Require ip 192.0.2.0/24 198.51.100.0/24
+        </RequireAll>
+        RequestHeader set X-Remote-User "expr=%{REMOTE_USER}"
+        # Same random secret as PROXY_SECRET in portal.env; keep this file root-readable.
+        RequestHeader set X-Portal-Proxy-Secret "REPLACE_WITH_PROXY_SECRET"
+    </Location>
+    ProxyPass / unix:/run/meeting-portal/app.sock|http://localhost/
+    ProxyPassReverse / http://localhost/
+    ErrorLog ${APACHE_LOG_DIR}/meeting-portal-error.log
+    # Do not log query strings, credentials, request bodies or proxy headers.
+    CustomLog ${APACHE_LOG_DIR}/meeting-portal-access.log "%h %t %m %U %>s"
+</VirtualHost>

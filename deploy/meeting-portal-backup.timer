@@ -1,0 +1,9 @@
+[Unit]
+Description=Hourly portal backup
+[Timer]
+OnCalendar=hourly
+Persistent=true
+AccuracySec=1s
+Unit=meeting-portal-backup.service
+[Install]
+WantedBy=timers.target

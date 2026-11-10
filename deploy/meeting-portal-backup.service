@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up the portal database to an external mount
+[Service]
+Type=oneshot
+User=meeting-portal-backup
+EnvironmentFile=/etc/meeting-portal/backup.env
+ExecStart=/opt/meeting-portal/deploy/backup.sh
+UMask=0077
+NoNewPrivileges=true

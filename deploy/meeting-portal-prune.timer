@@ -1,0 +1,8 @@
+[Unit]
+Description=Daily retention policy
+[Timer]
+OnCalendar=daily
+Persistent=true
+Unit=meeting-portal-prune.service
+[Install]
+WantedBy=timers.target
