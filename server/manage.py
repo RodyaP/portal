@@ -22,4 +22,5 @@ with db() as c:
   c.execute("DELETE FROM requests WHERE at < now() - interval '12 months'")
   c.execute('DELETE FROM portal_sessions WHERE expires<now()')
   c.execute("DELETE FROM portal_attempts WHERE started<now()-interval '15 minutes'")
+  c.execute("DELETE FROM portal_mail_outbox WHERE created_at<now()-interval '12 months' AND state IN ('sent','skipped','failed')")
 print('Completed:',args.command)

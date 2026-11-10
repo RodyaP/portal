@@ -39,3 +39,17 @@ CREATE TABLE IF NOT EXISTS portal_settings (
 CREATE TABLE IF NOT EXISTS portal_attempts (
  key text PRIMARY KEY, attempts integer NOT NULL, started timestamptz NOT NULL
 );
+CREATE TABLE IF NOT EXISTS portal_mail_settings (
+ id integer PRIMARY KEY CHECK(id=1), payload text NOT NULL
+);
+CREATE TABLE IF NOT EXISTS portal_mail_outbox (
+ id bigserial PRIMARY KEY, booking_id uuid NOT NULL, version integer NOT NULL,
+ event text NOT NULL, person_id text NOT NULL, person_name text NOT NULL,
+ recipient text NOT NULL, payload jsonb NOT NULL,
+ state text NOT NULL CHECK(state IN ('pending','sent','failed','skipped')),
+ attempts integer NOT NULL DEFAULT 0, last_error text NOT NULL DEFAULT '',
+ created_at timestamptz NOT NULL DEFAULT now(), next_attempt timestamptz NOT NULL DEFAULT now(),
+ sent_at timestamptz, UNIQUE(booking_id,version,person_id,event)
+);
+CREATE INDEX IF NOT EXISTS portal_mail_pending ON portal_mail_outbox(next_attempt,id) WHERE state='pending';
+CREATE INDEX IF NOT EXISTS portal_mail_booking ON portal_mail_outbox(booking_id,version);

@@ -22,7 +22,7 @@ def client(monkeypatch):
     monkeypatch.setenv('BOOTSTRAP_TOKEN', 'bootstrap-token-' * 4)
     with db() as c:
         c.execute(Path('server/schema.sql').read_text(encoding='utf-8'))
-        c.execute('TRUNCATE portal_local,portal_sessions,portal_settings,portal_roles,portal_attempts,audit')
+        c.execute('TRUNCATE portal_local,portal_sessions,portal_settings,portal_roles,portal_attempts,audit,portal_mail_settings,portal_mail_outbox')
     monkeypatch.setattr(directory, 'person', lambda _: PERSON.copy())
     monkeypatch.setattr(directory, 'authenticate', lambda *_: PERSON.copy())
     monkeypatch.setattr(directory, 'check', lambda _: None)

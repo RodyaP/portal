@@ -23,7 +23,7 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
         if not target.exists():
             archive.extract(entry, runtime)
 bin_dir = runtime / 'pgsql/bin'
-data = runtime / 'test-data'
+data = runtime / 'integration-data'
 if not data.exists():
     subprocess.run([str(bin_dir / 'initdb.exe'), '-D', str(data), '-U', 'tester', '-A', 'trust', '--encoding=UTF8', '--locale=C'], check=True)
 with socket.socket() as sock:

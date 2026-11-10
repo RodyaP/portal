@@ -1,4 +1,5 @@
 import os, json, hashlib, secrets, logging
+import asyncio
 from pathlib import Path
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
@@ -14,6 +15,8 @@ from . import directory
 from .domain import *
 from .auth import router as auth_router, current_user
 from .storage import db
+from . import mail
+from .mail_admin import router as mail_router
 ROOT=Path(__file__).resolve().parent.parent
 ORIGIN=os.getenv('PUBLIC_ORIGIN','https://peregovornii.ugmkstroy.ru').rstrip('/')
 
@@ -27,10 +30,17 @@ async def lifespan(app):
     local_dev = os.getenv('ALLOW_INSECURE_LOCALHOST') == 'true' and ORIGIN in ('http://localhost:8080','http://127.0.0.1:8080')
     if not ORIGIN.startswith('https://') and not local_dev: raise RuntimeError('HTTPS PUBLIC_ORIGIN required.')
     if os.getenv('COOKIE_SECURE','true') != 'true' and not local_dev: raise RuntimeError('Secure session cookies required.')
-    yield
+    stop = asyncio.Event()
+    task = asyncio.create_task(mail.worker(stop))
+    try:
+        yield
+    finally:
+        stop.set()
+        await task
 
 app=FastAPI(title='Переговорные УГМК',docs_url=None,redoc_url=None,openapi_url=None,lifespan=lifespan)
 app.include_router(auth_router)
+app.include_router(mail_router)
 
 @app.get('/health')
 def health():
@@ -202,7 +212,9 @@ def create(p:BookingInput,u=Depends(current_user)):
         def work():
             rows=prepared(p,u); conflicts=check_conflicts(c,rows)
             if conflicts: raise HTTPException(409,{'message':'Время уже занято. Измените время или явно исключите даты.','conflicts':conflicts})
-            for b in rows: insert(c,b); audited(c,u,'Создание блокировки' if b['kind']=='block' else 'Создание',b,p.reason)
+            for b in rows:
+                insert(c,b); audited(c,u,'Создание блокировки' if b['kind']=='block' else 'Создание',b,p.reason)
+                mail.enqueue(c,b,'created')
             return {'ids':[str(b['id']) for b in rows]}
         return idempotent(c,u,p,'create',work)
 @app.put('/api/bookings/{id}')
@@ -226,7 +238,9 @@ def edit(id:UUID,p:BookingInput,u=Depends(current_user)):
                 rows.append(dict(b,**info,starts=ns,ends=ne,version=b['version']+1))
             conflicts=check_conflicts(c,rows,[b['id'] for b in old])
             if conflicts: raise HTTPException(409,{'message':'Перенос пересекается с занятой бронью. Исходное время сохранено.','conflicts':conflicts})
-            for b,o in zip(rows,old): update(c,b); audited(c,u,'Изменение',b,p.reason,o)
+            for b,o in zip(rows,old):
+                update(c,b); audited(c,u,'Изменение',b,p.reason,o)
+                mail.enqueue(c,b,'updated',o)
             return {'ids':[str(b['id']) for b in rows]}
         return idempotent(c,u,p,'edit:'+str(id),work)
 @app.post('/api/bookings/{id}/{action}')
@@ -250,7 +264,9 @@ def act(id:UUID,action:str,p:ActionInput,u=Depends(current_user)):
                         if b['ends']<=o['ends']: fail('Новое окончание должно быть позже текущего.')
                         if overlaps(c,b['room'],b['starts'],b['ends'],[b['id']]): fail('Следующее время занято.',409)
                 rows.append(b)
-            for b,o in zip(rows,old): update(c,b); audited(c,u,{'cancel':'Отмена','finish':'Досрочное завершение','extend':'Продление'}[action],b,p.reason,o)
+            for b,o in zip(rows,old):
+                update(c,b); audited(c,u,{'cancel':'Отмена','finish':'Досрочное завершение','extend':'Продление'}[action],b,p.reason,o)
+                mail.enqueue(c,b,{'cancel':'cancelled','finish':'finished','extend':'extended'}[action],o)
             return {'ids':[str(b['id']) for b in rows]}
         return idempotent(c,u,p,action+str(id),work)
 @app.get('/api/bookings/{id}/ics')

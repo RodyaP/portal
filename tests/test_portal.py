@@ -21,7 +21,7 @@ def setup(monkeypatch):
  monkeypatch.setenv('DATABASE_URL',os.environ['TEST_DATABASE_URL'])
  with m.db() as c:
   c.execute(Path('server/schema.sql').read_text())
-  c.execute('TRUNCATE bookings,audit,requests RESTART IDENTITY')
+  c.execute('TRUNCATE bookings,audit,requests,portal_mail_settings,portal_mail_outbox RESTART IDENTITY')
  monkeypatch.setattr(m.directory,'person',lambda id:next(u for u in USERS if u['id']==id))
  m.app.dependency_overrides[m.current_user]=lambda:USERS[0]
  yield

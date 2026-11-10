@@ -1,4 +1,5 @@
 // Authentication and portal administration. No secrets are put in localStorage.
+import {mailAdministration} from './mail-settings.js';
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const field = (name, label, value='', type='text', required=true) => `<label class="field"><span>${label}</span><input name="${name}" type="${type}" value="${escape(value)}" ${required?'required':''} maxlength="${type==='password'?256:1000}" autocomplete="${type==='password'?'new-password':'off'}"></label>`;
 
@@ -58,4 +59,5 @@ export async function administration(api, me) {
   event.preventDefault();const form=event.currentTarget,button=form.querySelector('button');button.disabled=true;
   try{await api('/api/admin/local-password','POST',Object.fromEntries(new FormData(form)));location.reload()}catch(error){document.querySelector('#password-result').textContent=error.message;button.disabled=false}
  };
+ await mailAdministration(api);
 }
